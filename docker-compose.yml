@@ -1,0 +1,76 @@
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    volumes:
+      - ./db-data:/var/lib/mysql
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  wordpress:
+    image: wordpress:6.8-php8.3-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Endast loopback - all extern trafik ska gå via nginx (TLS, rate limit)
+      - '127.0.0.1:${PORT}:80'
+    volumes:
+      - wp-core:/var/www/html
+      - ./wp-content:/var/www/html/wp-content
+      - ./.htaccess:/var/www/html/.htaccess
+    environment: &wp-env
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_AUTH_KEY: ${WP_AUTH_KEY}
+      WORDPRESS_SECURE_AUTH_KEY: ${WP_SECURE_AUTH_KEY}
+      WORDPRESS_LOGGED_IN_KEY: ${WP_LOGGED_IN_KEY}
+      WORDPRESS_NONCE_KEY: ${WP_NONCE_KEY}
+      WORDPRESS_AUTH_SALT: ${WP_AUTH_SALT}
+      WORDPRESS_SECURE_AUTH_SALT: ${WP_SECURE_AUTH_SALT}
+      WORDPRESS_LOGGED_IN_SALT: ${WP_LOGGED_IN_SALT}
+      WORDPRESS_NONCE_SALT: ${WP_NONCE_SALT}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_HOME','https://${DOMAIN}/');
+        define('WP_SITEURL','https://${DOMAIN}/');
+
+  # SFTP-ingång för sitens användare. Chrootad till sin hemmapp där
+  # "www" är sitens wp-content. uid/gid 33 = www-data i wordpress-containern.
+  sftp:
+    image: atmoz/sftp:alpine
+    restart: unless-stopped
+    ports:
+      - '${SFTP_PORT}:22'
+    command: '${SFTP_USER}:${SFTP_PASSWORD}:33:33:www'
+    volumes:
+      - ./wp-content:/home/${SFTP_USER}/www
+      - ./ssh/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key:ro
+      - ./ssh/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key:ro
+
+  # wp-cli för administration, körs vid behov: bash ./wp.sh <kommando>
+  wpcli:
+    image: wordpress:cli-php8.3
+    profiles: ['cli']
+    user: '33:33'
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - wp-core:/var/www/html
+      - ./wp-content:/var/www/html/wp-content
+    environment: *wp-env
+
+volumes:
+  wp-core:

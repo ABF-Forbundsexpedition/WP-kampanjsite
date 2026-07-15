@@ -1,0 +1,10 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Skalskript och konfig som läses på Linux måste ha LF
+*.sh text eol=lf
+.env.example text eol=lf
+.htaccess text eol=lf
+nginx.conf text eol=lf
+docker-compose.yml text eol=lf
+VERSION text eol=lf
