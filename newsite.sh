@@ -135,8 +135,8 @@ Webbplats:  https://$DOMAIN
 $WP_ADMIN_INFO
 
 SFTP (för filer: teman, plugins, uppladdningar):
-  Server:     abf000webu2.abf.se
-  Port:       $SFTP_PORT
+  Server:     $DOMAIN
+  Port:       22 (standard)
   Användare:  $SFTP_USER
   Lösenord:   $SFTP_PASSWORD
   Mappen "www" är sitens wp-content.

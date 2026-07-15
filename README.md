@@ -17,8 +17,11 @@ webu2
    └─ db-data/                     databasens filer
 ```
 
-Alla siter delar en SFTP-tjänst på **port 2222** med en användare per
-site (användarnamn = domänen med bindestreck, t.ex. `kampanj-abf-se`).
+Alla siter delar en SFTP-tjänst med en användare per site
+(användarnamn = domänen med bindestreck, t.ex. `kampanj-abf-se`).
+Tjänsten lyssnar på port **2222** på servern, men brandväggen
+NAT:ar extern port **22** dit – användare ansluter alltså till sin
+egen domän på standardporten: `sftp kampanj-abf-se@kampanj.abf.se`.
 Varje användare är chrootad och ser bara sin egen `wp-content` – de kan
 ladda upp teman och filer men inte röra WordPress-kärnan eller andra
 siter. Tjänsten genereras om automatiskt av `sftp-sync.sh` (anropas av
@@ -30,8 +33,8 @@ newsite.sh/removesite.sh) utifrån alla siters `.env`.
   (vilken domän som helst fungerar).
 - På servern: `nginx`, `certbot` (med nginx-plugin), `docker` med
   compose, `git`, `openssl`.
-- Brandvägg: portarna **80, 443** samt SFTP-porten **2222** öppna in
-  mot servern.
+- Brandvägg: portarna **80, 443** öppna mot servern samt NAT av extern
+  port **22** till serverns port **2222** (SFTP).
 - Detta repo klonat en gång som mall: `/home/WP/WP-kampanjsite`.
 
 ## Skapa en ny site
