@@ -33,6 +33,11 @@ nginx -t && nginx -s reload
 certbot delete --cert-name "$DOMAIN" --non-interactive || \
     echo "VARNING: kunde inte ta bort certifikatet för $DOMAIN."
 
+# Döp om .env så att siten inte längre räknas (frigör porten och tar
+# bort sftp-användaren vid nästa synk)
+mv .env .env.removed
+bash ./sftp-sync.sh
+
 echo
 echo "Siten $DOMAIN är borttagen."
 echo "Backup finns i ${BACKUP_ROOT:-/home/WP/backups}/$DOMAIN"

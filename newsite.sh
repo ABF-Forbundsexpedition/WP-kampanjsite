@@ -43,12 +43,10 @@ check_version "$TEMPLATE_DIR" "$@"
 if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
 
 # ------------------------------------------------------------------
-# Nästa lediga portpar: webb 8001+ (endast loopback) och
-# sftp = webbport + 12000 (öppen utåt, t.ex. 8001 -> 20001).
-# Portar tagna av andra siter (enligt deras .env) eller upptagna på
-# värden hoppas över.
+# Nästa lediga webbport: 8001 och uppåt (endast loopback). Portar tagna
+# av andra siter (enligt deras .env) eller upptagna på värden hoppas över.
 # ------------------------------------------------------------------
-TAKEN_PORTS=$(grep -hsE '^(SFTP_)?PORT=' "$BASE_DIR"/*/.env 2>/dev/null | cut -d= -f2 || true)
+TAKEN_PORTS=$(grep -hs '^PORT=' "$BASE_DIR"/*/.env 2>/dev/null | cut -d= -f2 || true)
 LISTENING=$(ss -ltnH 2>/dev/null | awk '{print $4}' | grep -o '[0-9]*$' || true)
 
 port_free() {
@@ -56,27 +54,29 @@ port_free() {
 }
 
 PORT=8001
-while ! port_free "$PORT" || ! port_free "$((PORT + 12000))"; do
+while ! port_free "$PORT"; do
     PORT=$((PORT + 1))
     if [[ "$PORT" -gt 8999 ]]; then
         echo "Ingen ledig port i intervallet 8001-8999." >&2
         exit 1
     fi
 done
-SFTP_PORT=$((PORT + 12000))
 
 rand() { openssl rand -base64 96 | tr -dc 'a-zA-Z0-9' | head -c "$1"; }
 
+# SFTP-användarnamn = domänen med punkter som bindestreck (unikt per site
+# eftersom alla siter delar en sftp-tjänst på port 2222)
+SFTP_USER=$(echo "$DOMAIN" | tr '.' '-')
 SFTP_PASSWORD=$(rand 20)
+SFTP_PORT="${SFTP_PORT:-2222}"
 
-echo "Skapar $DOMAIN (webbport $PORT, sftp-port $SFTP_PORT) i $SITE_DIR ..."
+echo "Skapar $DOMAIN (webbport $PORT) i $SITE_DIR ..."
 git clone --quiet "$TEMPLATE_DIR" "$SITE_DIR"
 
 cat > "$SITE_DIR/.env" <<EOF
 DOMAIN=$DOMAIN
 PORT=$PORT
-SFTP_PORT=$SFTP_PORT
-SFTP_USER=upload
+SFTP_USER=$SFTP_USER
 SFTP_PASSWORD=$SFTP_PASSWORD
 CERT_EMAIL=$CERT_EMAIL
 MYSQL_ROOT_PASSWORD=$(rand 24)
@@ -95,6 +95,9 @@ chmod 600 "$SITE_DIR/.env"
 cd "$SITE_DIR"
 bash ./setup.sh
 
+# Lägg till sitens användare i den delade SFTP-tjänsten
+bash "$TEMPLATE_DIR/sftp-sync.sh"
+
 # ------------------------------------------------------------------
 # Installera WordPress med wp-cli om e-post angavs, annars får man
 # köra installationsguiden i webbläsaren vid första besöket.
@@ -103,21 +106,21 @@ WP_ADMIN_INFO="WordPress-installationen görs i webbläsaren vid första besöke
 if [[ -n "$CERT_EMAIL" ]]; then
     echo "Väntar på att WordPress-filerna ska finnas på plats ..."
     for i in $(seq 1 30); do
-        if $DC --profile cli run --rm wpcli wp core version >/dev/null 2>&1; then
+        if $DC --profile cli run --rm -e HOME=/tmp wpcli wp core version >/dev/null 2>&1; then
             break
         fi
         sleep 2
     done
 
     WP_ADMIN_PASS=$(rand 16)
-    $DC --profile cli run --rm wpcli wp core install \
+    $DC --profile cli run --rm -e HOME=/tmp wpcli wp core install \
         --url="https://$DOMAIN" \
         --title="$DOMAIN" \
         --admin_user=admin \
         --admin_password="$WP_ADMIN_PASS" \
         --admin_email="$CERT_EMAIL" \
         --skip-email
-    $DC --profile cli run --rm wpcli wp language core install sv_SE --activate || true
+    $DC --profile cli run --rm -e HOME=/tmp wpcli wp language core install sv_SE --activate || true
     WP_ADMIN_INFO="WP-admin:   https://$DOMAIN/wp-admin
 Användare:  admin
 Lösenord:   $WP_ADMIN_PASS"
@@ -134,7 +137,7 @@ $WP_ADMIN_INFO
 SFTP (för filer: teman, plugins, uppladdningar):
   Server:     abf000webu2.abf.se
   Port:       $SFTP_PORT
-  Användare:  upload
+  Användare:  $SFTP_USER
   Lösenord:   $SFTP_PASSWORD
   Mappen "www" är sitens wp-content.
 

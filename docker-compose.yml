@@ -46,18 +46,8 @@ services:
         define('WP_HOME','https://${DOMAIN}/');
         define('WP_SITEURL','https://${DOMAIN}/');
 
-  # SFTP-ingång för sitens användare. Chrootad till sin hemmapp där
-  # "www" är sitens wp-content. uid/gid 33 = www-data i wordpress-containern.
-  sftp:
-    image: atmoz/sftp:alpine
-    restart: unless-stopped
-    ports:
-      - '${SFTP_PORT}:22'
-    command: '${SFTP_USER}:${SFTP_PASSWORD}:33:33:www'
-    volumes:
-      - ./wp-content:/home/${SFTP_USER}/www
-      - ./ssh/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key:ro
-      - ./ssh/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key:ro
+  # SFTP hanteras inte per site utan av den delade tjänsten i /home/WP/sftp,
+  # som genereras av sftp-sync.sh utifrån SFTP_USER/SFTP_PASSWORD i .env.
 
   # wp-cli för administration, körs vid behov: bash ./wp.sh <kommando>
   wpcli:

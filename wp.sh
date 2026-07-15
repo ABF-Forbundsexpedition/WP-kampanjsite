@@ -9,4 +9,4 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
 
-$DC --profile cli run --rm wpcli wp "$@"
+$DC --profile cli run --rm -e HOME=/tmp wpcli wp "$@"

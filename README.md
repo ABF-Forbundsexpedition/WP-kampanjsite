@@ -7,18 +7,22 @@ Varje site bor i sin egen mapp under `/home/WP/<domän>/` med egna containrar
 ```
 webu2
 ├─ nginx + certbot (på värden)  →  domän → 127.0.0.1:<port>
+├─ /home/WP/sftp/                  delad SFTP-tjänst, port 2222
+│                                  (genereras av sftp-sync.sh)
 └─ /home/WP/<domän>/               en mapp per site (klon av detta repo)
-   ├─ docker-compose.yml           wordpress + mariadb + sftp (+ wp-cli)
-   ├─ .env                         genererade lösenord, portar, domän
+   ├─ docker-compose.yml           wordpress + mariadb (+ wp-cli)
+   ├─ .env                         genererade lösenord, port, domän
    ├─ site-info.txt                kontoblad (skapas av newsite.sh)
-   ├─ ssh/                         sftp-containerns värdnycklar
    ├─ wp-content/                  teman, plugins, uppladdningar (= SFTP)
    └─ db-data/                     databasens filer
 ```
 
-Varje site får en egen SFTP-ingång (egen container, egen port) där
-användaren är chrootad och bara ser sitens `wp-content` – de kan ladda
-upp teman och filer men inte röra WordPress-kärnan eller andra siter.
+Alla siter delar en SFTP-tjänst på **port 2222** med en användare per
+site (användarnamn = domänen med bindestreck, t.ex. `kampanj-abf-se`).
+Varje användare är chrootad och ser bara sin egen `wp-content` – de kan
+ladda upp teman och filer men inte röra WordPress-kärnan eller andra
+siter. Tjänsten genereras om automatiskt av `sftp-sync.sh` (anropas av
+newsite.sh/removesite.sh) utifrån alla siters `.env`.
 
 ## Förutsättningar
 
@@ -26,8 +30,8 @@ upp teman och filer men inte röra WordPress-kärnan eller andra siter.
   (vilken domän som helst fungerar).
 - På servern: `nginx`, `certbot` (med nginx-plugin), `docker` med
   compose, `git`, `openssl`.
-- Brandvägg: portarna **80, 443** samt SFTP-intervallet **20001–20999**
-  öppna in mot servern.
+- Brandvägg: portarna **80, 443** samt SFTP-porten **2222** öppna in
+  mot servern.
 - Detta repo klonat en gång som mall: `/home/WP/WP-kampanjsite`.
 
 ## Skapa en ny site
@@ -37,12 +41,13 @@ cd /home/WP/WP-kampanjsite
 sudo bash ./newsite.sh kampanj.example.se info@abf.se
 ```
 
-Skriptet väljer nästa lediga portpar själv (webb 8001+, sftp 20001+),
-genererar alla lösenord, ordnar nginx + certifikat och installerar
-WordPress på svenska med en admin-användare. Kontobladet med alla
-uppgifter – inklusive användarens SFTP-inloggning – skrivs ut och
-sparas i `/home/WP/kampanj.example.se/site-info.txt`. Det är allt som
-behöver lämnas över till användaren.
+Skriptet väljer nästa lediga webbport själv (8001+), genererar alla
+lösenord, ordnar nginx + certifikat, installerar WordPress på svenska
+med en admin-användare och lägger till sitens SFTP-användare i den
+delade tjänsten på port 2222. Kontobladet med alla uppgifter –
+inklusive användarens SFTP-inloggning – skrivs ut och sparas i
+`/home/WP/kampanj.example.se/site-info.txt`. Det är allt som behöver
+lämnas över till användaren.
 
 Utelämnas e-postadressen installeras inte WordPress automatiskt –
 då körs installationsguiden i webbläsaren vid första besöket.

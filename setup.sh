@@ -23,15 +23,6 @@ if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="do
 mkdir -p wp-content
 chown 33:33 wp-content
 
-# SSH-värdnycklar för sftp-containern. Genereras en gång per site och
-# behålls, annars varnar användarens sftp-klient om ny nyckel vid varje
-# omskapad container.
-mkdir -p ssh
-[[ -f ssh/ssh_host_ed25519_key ]] || ssh-keygen -t ed25519 -N '' -q -f ssh/ssh_host_ed25519_key
-[[ -f ssh/ssh_host_rsa_key ]] || ssh-keygen -t rsa -b 4096 -N '' -q -f ssh/ssh_host_rsa_key
-# sshd vägrar starta om nycklarna är läsbara för andra
-chmod 600 ssh/ssh_host_ed25519_key ssh/ssh_host_rsa_key
-
 # ------------------------------------------------------------------
 # Delade nginx-filer (samma för alla siter, skrivs om vid behov)
 # ------------------------------------------------------------------
