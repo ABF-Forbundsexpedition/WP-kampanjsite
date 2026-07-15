@@ -39,8 +39,9 @@ ANTAL=0
 for ENV_FILE in "$BASE_DIR"/*/.env; do
     [[ -f "$ENV_FILE" ]] || continue
     SITE_DIR=$(dirname "$ENV_FILE")
-    SFTP_USER=$(grep -s '^SFTP_USER=' "$ENV_FILE" | cut -d= -f2)
-    SFTP_PASSWORD=$(grep -s '^SFTP_PASSWORD=' "$ENV_FILE" | cut -d= -f2)
+    # || true: siter utan SFTP-uppgifter (t.ex. äldre siter) hoppas över
+    SFTP_USER=$(grep -s '^SFTP_USER=' "$ENV_FILE" | cut -d= -f2 || true)
+    SFTP_PASSWORD=$(grep -s '^SFTP_PASSWORD=' "$ENV_FILE" | cut -d= -f2 || true)
     [[ -n "$SFTP_USER" && -n "$SFTP_PASSWORD" ]] || continue
     echo "$SFTP_USER:$SFTP_PASSWORD:33:33" >> "$USERS_TMP"
     echo "      - $SITE_DIR/wp-content:/home/$SFTP_USER/www" >> "$COMPOSE_TMP"
