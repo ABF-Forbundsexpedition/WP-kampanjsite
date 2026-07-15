@@ -43,8 +43,17 @@ for ENV_FILE in "$BASE_DIR"/*/.env; do
     SFTP_USER=$(grep -s '^SFTP_USER=' "$ENV_FILE" | cut -d= -f2 || true)
     SFTP_PASSWORD=$(grep -s '^SFTP_PASSWORD=' "$ENV_FILE" | cut -d= -f2 || true)
     [[ -n "$SFTP_USER" && -n "$SFTP_PASSWORD" ]] || continue
+    # Vilken katalog användaren ser som "www". Standard är wp-content i
+    # sitemappen; siter med annan struktur (t.ex. Bedrock) kan sätta
+    # SFTP_CONTENT_DIR i .env - absolut sökväg eller relativt sitemappen.
+    SFTP_CONTENT_DIR=$(grep -s '^SFTP_CONTENT_DIR=' "$ENV_FILE" | cut -d= -f2- || true)
+    SFTP_CONTENT_DIR="${SFTP_CONTENT_DIR:-wp-content}"
+    case "$SFTP_CONTENT_DIR" in
+        /*) CONTENT_PATH="$SFTP_CONTENT_DIR" ;;
+        *)  CONTENT_PATH="$SITE_DIR/$SFTP_CONTENT_DIR" ;;
+    esac
     echo "$SFTP_USER:$SFTP_PASSWORD:33:33" >> "$USERS_TMP"
-    echo "      - $SITE_DIR/wp-content:/home/$SFTP_USER/www" >> "$COMPOSE_TMP"
+    echo "      - $CONTENT_PATH:/home/$SFTP_USER/www" >> "$COMPOSE_TMP"
     ANTAL=$((ANTAL + 1))
 done
 
